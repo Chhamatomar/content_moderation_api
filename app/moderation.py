@@ -11,7 +11,21 @@ CATEGORY_KEYWORDS = {
     "violence": ["kill", "attack", "shoot", "bomb", "murder", "stab",
         "beat you up", "hurt you", "destroy you", "burn it down",
         "gun down", "assault"],
-    "spam": ["act now", "limited time", "limited offer", "offer expires","hurry up", "don't miss out", "last chance", "expires soon"],
+    "spam": ["act now", "limited time", "limited offer", "offer expires",
+        "hurry up", "don't miss out", "last chance", "expires soon",
+        "free money", "earn cash fast", "make money fast", "guaranteed income",
+        "work from home", "get rich quick", "double your income",
+        "you have won", "you've won", "claim your prize", "claim now",
+        "winner", "cash prize", "no cost to you",
+        "buy now", "click here", "click below", "subscribe now",
+        "sign up now", "order now", "discount code", "special promotion",
+        "100% free", "risk free", "money back guarantee",
+        "www.", "http://", "https://", "visit our website",
+        "call now", "text stop to unsubscribe",
+        "investment opportunity", "crypto giveaway", "double your bitcoin",
+        "forex trading", "get paid daily",
+        "verify your account", "confirm your password", "update your billing",
+        "your account has been suspended", "unusual login activity"],
 }
 
 

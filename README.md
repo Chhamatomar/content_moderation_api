@@ -52,6 +52,8 @@ This separation means the SQLAlchemy model (what's stored) and the Pydantic sche
 - **SQLAlchemy** — ORM for database models and queries
 - **Pydantic** — data validation and schema definitions
 - **Uvicorn** — ASGI server
+- **pytest** — automated testing framework
+- **httpx** — HTTP client used by FastAPI's test client
 
 ---
 
@@ -63,6 +65,7 @@ This separation means the SQLAlchemy model (what's stored) and the Pydantic sche
 - Input validation: rejects missing, empty, or whitespace-only text with a `422` response
 - Proper REST semantics: `404` for missing resources, `422` for invalid input
 - Auto-generated interactive API documentation via Swagger UI (`/docs`)
+- Automated test suite (pytest) covering happy paths, validation rules, and error handling, run against an isolated in-memory database
 
 ---
 
@@ -164,6 +167,11 @@ content-moderation-api/
 │   ├── schemas.py        # Pydantic request/response schemas
 │   └── moderation.py     # Rule-based moderation logic
 │
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py       # Test fixtures and in-memory test database setup
+│   └── test_main.py      # Endpoint tests (happy paths, validation, error handling)
+│
 ├── requirements.txt
 ├── .env                   # Environment variables (not committed)
 ├── .gitignore
@@ -222,6 +230,14 @@ content-moderation-api/
 
    Visit `http://127.0.0.1:8000/docs`
 
+### Running Tests
+
+The test suite runs against an isolated in-memory SQLite database, so it does not require PostgreSQL to be running and will never affect real data.
+
+```bash
+pytest -v
+```
+
 ---
 
 ## What This Project Demonstrates
@@ -231,16 +247,16 @@ content-moderation-api/
 - Modeling and persisting data with SQLAlchemy and PostgreSQL
 - Handling REST error semantics correctly (`404`, `422`)
 - Identifying and documenting the limitations of a rule-based system, and structuring the codebase so a more advanced detection method could be substituted later without a redesign
+- Writing automated tests with pytest, using dependency overrides to isolate tests from the production database
 
 ---
 
 ## Possible Future Improvements
 
 - Containerize the application with Docker and Docker Compose (in progress)
+- Add API key authentication on `GET /moderation/{id}` — since IDs are sequential integers, an unauthenticated retrieval endpoint allows enumeration of every stored result. `POST /moderate` is left open since it only returns the caller's own submission.
 - Replace or augment rule-based detection with a machine learning text classifier
-- Add authentication (API keys) for client applications
 - Add a `GET /moderation` endpoint with pagination to list results
-- Add automated tests (`pytest`) covering endpoint behavior and edge cases
 - Introduce Alembic for schema migrations as the data model evolves
 - Add rate limiting to prevent abuse of the public API
 - Deploy to a cloud platform with a live demo link

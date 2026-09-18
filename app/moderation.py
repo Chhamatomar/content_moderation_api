@@ -4,7 +4,7 @@
 CATEGORY_KEYWORDS = {
     "abusive": ["idiot", "stupid", "dumb", "moron", "loser", "ugly",
         "pathetic", "worthless", "trash", "garbage", "disgusting",
-        "shut up", "clown", "fool", "jerk", "scum"],
+        "shut up", "clown", "fool", "jerk", "scum","mad"],
     "hate_speech": ["hate you", "hate them", "racist", "sexist", "bigot",
         "go back to your country", "you people", "inferior race",
         "subhuman", "nazi"],

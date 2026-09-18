@@ -1,6 +1,6 @@
 # Content Moderation API
 
-A REST API that analyzes user-generated text and flags inappropriate content using a rule-based keyword detection system. Built as a backend engineering portfolio project demonstrating clean API design, database persistence, and input validation with FastAPI and PostgreSQL.
+A REST API that analyzes user-generated text and flags inappropriate content using a rule-based keyword detection system. Built as a backend engineering portfolio project demonstrating clean API design, database persistence, automated testing, schema migrations, and containerization with FastAPI, PostgreSQL, and Docker.
 
 ---
 
@@ -46,14 +46,16 @@ This separation means the SQLAlchemy model (what's stored) and the Pydantic sche
 
 ## Tech Stack
 
-- **Python 3.14**
+- **Python 3.12**
 - **FastAPI** — web framework, request/response validation, auto-generated OpenAPI docs
 - **PostgreSQL** — relational database for persisting moderation results
 - **SQLAlchemy** — ORM for database models and queries
+- **Alembic** — database schema migrations
 - **Pydantic** — data validation and schema definitions
 - **Uvicorn** — ASGI server
 - **pytest** — automated testing framework
 - **httpx** — HTTP client used by FastAPI's test client
+- **Docker / Docker Compose** — containerization
 
 ---
 
@@ -66,6 +68,8 @@ This separation means the SQLAlchemy model (what's stored) and the Pydantic sche
 - Proper REST semantics: `404` for missing resources, `422` for invalid input
 - Auto-generated interactive API documentation via Swagger UI (`/docs`)
 - Automated test suite (pytest) covering happy paths, validation rules, and error handling, run against an isolated in-memory database
+- Schema migrations managed with Alembic instead of ad-hoc table creation
+- Fully containerized with Docker Compose; a pre-built image is also published to Docker Hub
 
 ---
 
@@ -84,6 +88,8 @@ For each category, the engine counts how many of its keywords appear in the text
 
 **Known limitation:** this approach only catches content containing its exact predefined keywords. It cannot detect synonyms, misspellings, sarcasm, or context — for example, "you are terrible at this" would not be flagged unless "terrible" is explicitly in the keyword list. It's also prone to false positives on words that are contextually broad (e.g. "kill" appearing in "this song kills it"). This is a deliberate, acknowledged tradeoff of rule-based systems, and the exact reason production moderation systems typically move toward ML-based classifiers — which this architecture is structured to accommodate later without redesigning the API or database layers.
 
+**On authentication:** `GET /moderation/{id}` uses sequential integer IDs, which means an unauthenticated retrieval endpoint would allow enumeration of every stored result (requesting `/moderation/1`, `/moderation/2`, etc.). This was identified during development as a real access-control gap; API key authentication on this endpoint specifically is documented as a near-term improvement below. `POST /moderate` is left open since it only ever returns the caller's own submission.
+
 ---
 
 ## Database Schema
@@ -98,6 +104,8 @@ For each category, the engine counts how many of its keywords appear in the text
 | `category` | String | Detected category (`abusive`, `hate_speech`, `violence`, `spam`, or `clean`) |
 | `confidence` | Float | Heuristic confidence score (0.0–0.95) |
 | `created_at` | DateTime | Server-generated timestamp of when the record was created |
+
+Schema changes are managed with **Alembic** migrations rather than relying on `Base.metadata.create_all()`, so future changes to this table (new columns, index changes, etc.) can be applied incrementally and are version-controlled.
 
 ---
 
@@ -167,6 +175,11 @@ content-moderation-api/
 │   ├── schemas.py        # Pydantic request/response schemas
 │   └── moderation.py     # Rule-based moderation logic
 │
+├── alembic/
+│   ├── versions/          # Migration scripts
+│   └── env.py             # Alembic environment configuration
+├── alembic.ini
+│
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py       # Test fixtures and in-memory test database setup
@@ -175,6 +188,8 @@ content-moderation-api/
 ├── requirements.txt
 ├── .env                   # Environment variables (not committed)
 ├── .gitignore
+├── Dockerfile
+├── docker-compose.yml
 └── README.md
 ```
 
@@ -185,14 +200,14 @@ content-moderation-api/
 ### Prerequisites
 
 - Python 3.10+
-- PostgreSQL (a local install, or run it via Docker as shown in step 5 below)
+- PostgreSQL (a local install, or run it via Docker as shown below)
 
 ### Local Setup
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/Chhamatomar/content-moderation-api.git
-   cd content-moderation-api
+   git clone https://github.com/Chhamatomar/content_moderation_api.git
+   cd content_moderation_api
    ```
 
 2. **Create and activate a virtual environment**
@@ -219,14 +234,17 @@ content-moderation-api/
    docker run --name moderation-postgres -e POSTGRES_PASSWORD=<password> -e POSTGRES_DB=<database_name> -p 5432:5432 -d postgres:16
    ```
 
-6. **Run the application**
+6. **Apply database migrations**
+   ```bash
+   alembic upgrade head
+   ```
+
+7. **Run the application**
    ```bash
    uvicorn app.main:app --reload
    ```
 
-   The database table is created automatically on startup.
-
-7. **Open the interactive API docs**
+8. **Open the interactive API docs**
 
    Visit `http://127.0.0.1:8000/docs`
 
@@ -240,6 +258,41 @@ pytest -v
 
 ---
 
+## Dockerization
+
+The project runs as two orchestrated services via Docker Compose:
+
+* **`api`** — built from the included `Dockerfile` (Python 3.12-slim base), runs the FastAPI app via Uvicorn
+* **`db`** — official `postgres:16` image, with a named volume (`moderation_pgdata`) for data persistence across restarts
+
+The `api` service declares `depends_on: db`, so the database container starts before the API container. The two services communicate over Docker Compose's internal network using the service name `db` as the hostname, rather than `localhost`.
+
+### Run the Full Stack with Docker Compose
+
+```bash
+docker-compose up --build
+```
+
+Once running, visit:
+```
+http://127.0.0.1:8080/docs
+```
+
+### Pull the Pre-Built Image from Docker Hub
+
+A pre-built image is also published on Docker Hub, so the API can be pulled and run directly without building from source:
+
+```bash
+docker pull chhamatomar639/content-moderation-api:latest
+docker run -p 8080:8000 --env-file .env chhamatomar639/content-moderation-api:latest
+```
+
+*(Requires a reachable `DATABASE_URL` in your `.env` — this runs the API container alone, without the bundled Postgres container that Docker Compose provides.)*
+
+Docker Hub image: [chhamatomar639/content-moderation-api](https://hub.docker.com/r/chhamatomar639/content-moderation-api)
+
+---
+
 ## What This Project Demonstrates
 
 - Designing a layered backend architecture with clear separation between API, business logic, and data access
@@ -248,20 +301,12 @@ pytest -v
 - Handling REST error semantics correctly (`404`, `422`)
 - Identifying and documenting the limitations of a rule-based system, and structuring the codebase so a more advanced detection method could be substituted later without a redesign
 - Writing automated tests with pytest, using dependency overrides to isolate tests from the production database
+- Managing schema changes with Alembic migrations instead of ad-hoc table creation
+- Containerizing a Python web service with Docker Compose and publishing a usable image to Docker Hub
+- Debugging real infrastructure issues (container port conflicts, database connectivity) encountered while building and running the project locally
 
 ---
 
-## Possible Future Improvements
-
-- Containerize the application with Docker and Docker Compose (in progress)
-- Add API key authentication on `GET /moderation/{id}` — since IDs are sequential integers, an unauthenticated retrieval endpoint allows enumeration of every stored result. `POST /moderate` is left open since it only returns the caller's own submission.
-- Replace or augment rule-based detection with a machine learning text classifier
-- Add a `GET /moderation` endpoint with pagination to list results
-- Introduce Alembic for schema migrations as the data model evolves
-- Add rate limiting to prevent abuse of the public API
-- Deploy to a cloud platform with a live demo link
-
----
 
 ## License
 
